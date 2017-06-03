@@ -11,11 +11,17 @@ There are a couple of files that are used to make sure we can parse a log every 
   2. There is a ctime file which keeps track of the logfile's creation time. The use
      of this file allows the program to continue reading the canonical log even if it
      is rotated.
+
+  sys level errors returned are:
+      1 - a locking error when the file didn't exist at the start of the function.
+      2 - a locking error when an exclusive lock already exists on the lock file.
 """
 
+import fcntl
 import optparse
 import os.path
 import re
+import sys
 
 return_code_map = {}
 route_map = {}
@@ -25,14 +31,54 @@ route = '(GET|POST|DELETE|HEAD).(.+)'
 status = 'HTTP/1.[0-1]..([0-9]{3})'
 reg = re.compile(time+route+status)
 
-offset_path = 'offset'
-ctime_path = 'ctime_file'
+offset_file = 'offset'
+ctime_file = 'ctime_file'
 log_path = 'sample.log'
+lock_file = 'log_parser_lock'
 
 ranges = {'20x': range(200, 300),
           '30x': range(300, 400),
           '40x': range(400, 500),
           '50x': range(500, 600)}
+
+def get_lock():
+    """Will grab and lock a file. The file is used to ensure this program will not runover itself.
+
+    Returns:
+        File handle.
+    """
+    if not os.path.exists(lock_file):
+        fl = open(lock_file, 'a+')
+        try:
+            fcntl.lockf(fl, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except IOError as e:
+            if e.errno not in (errno.EACCES, errno.EAGAIN):
+                # Something else started. This is not likely.
+                raise(IOError, 'already locked')
+                sys.exit(1)
+    else:
+        fl = open(lock_file, 'r+')
+        try:
+            fcntl.lockf(fl, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except IOError as e:
+            # File is lready locked.
+            raise(IOError, 'already locked')
+            sys.exit(2)
+    return fl
+
+def release_lock(fl):
+    """Will release the lock on the lock_file.
+
+    Args:
+        fl: File handle for the lock_file.
+
+    Returns:
+        None.
+    """
+    try:
+        fcntl.lockf(fl, fcntl.LOCK_UN)
+    except IOError as e:
+        sys.exit(3)
 
 def check_range(num):
     """Checks if the number range.
@@ -54,9 +100,9 @@ def get_offset():
         int: offest.
     """
     try:
-        offset = open(offset_path, 'r+')
+        offset = open(offset_file, 'r+')
     except IOError as e:
-        offset = open(offset_path, 'a+')
+        offset = open(offset_file, 'a+')
     o = offset.readline()
     if len(o) == 0 or o == "\n":
         o = 0
@@ -72,7 +118,7 @@ def set_offset(f, reset=False):
     Returns:
         None.
     """
-    offset = open(offset_path, 'w')
+    offset = open(offset_file, 'w')
     if reset:
         new_offset = '0'
     else:
@@ -91,9 +137,9 @@ def get_ctime(nctime):
         float: previous ctime.
     """
     try:
-        octime = open(ctime_path, 'r+')
+        octime = open(ctime_file, 'r+')
     except IOError as e:
-        octime = open(ctime_path, 'a+')
+        octime = open(ctime_file, 'a+')
         octime.write(str(nctime))
     ctime = octime.readline()
     octime.close()
@@ -111,7 +157,7 @@ def set_ctime():
         ctime = nctime
     if float(nctime) > float(ctime):
         set_offset(None, True)
-        octime = open(ctime_path, 'w')
+        octime = open(ctime_file, 'w')
         octime.write(str(nctime))
         octime.close()
 
@@ -167,21 +213,41 @@ def print_statsd_messages():
         print '{}:{}|s'.format(k, v)
 
 if __name__ == '__main__':
+    fl = get_lock()
+
     parser = optparse.OptionParser(
     """Usage: %prog [options]
 
        Example:
-       %prog -l sample.log
+       %prog -l sample.log -o /tmp/offset -c /tmp/ctime
     """, version="%prog .01")
 
-    parser.add_option("-l", "--logfile", dest="log_path", help="Specify logfile.",
+    parser.add_option("-l", "--logfile", dest="logfile", help="Specify logfile.",
             default='sample.log')
+    parser.add_option("-o", "--offset_file", dest="offset_file", help="Specify offset file.",
+            default='offset')
+    parser.add_option("-c", "--ctime_file", dest="ctime_file", help="Specify ctime file.",
+            default='ctime')
+    parser.add_option("-r", "--reset", dest="reset", action='store_true',
+            help="Reset and remove ctime_file and offset_file.", default=False)
     (options, args) = parser.parse_args()
 
-    if options.log_path:
-        log_path = options.log_path
+    if options.logfile:
+        log_path = options.logfile
+
+    if options.offset_file:
+        offset_file = options.offset_file
+
+    if options.ctime_file:
+        ctime_file = options.ctime_file
+
+    if options.reset:
+        os.remove(ctime_file)
+        os.remove(offset_file)
+        os.remove(lock_file)
 
     f = get_log()
     process_log(f)
+    release_lock(fl)
     print_statsd_messages()
 
