@@ -2,9 +2,7 @@
 # Author: Geoffrey Golliher (brokenway@gmail.com)
 
 ##
-#
 # This module will parse a given logfile and output statsd compatible messages.
-#
 ##
 
 import optparse
@@ -155,9 +153,9 @@ def print_statsd_messages():
     Returns
         None.
     """
-    for k,v in return_code_map.items():
+    for k, v in return_code_map.items():
         print '{}:{}|s'.format(k, v)
-    for k,v in route_map.items():
+    for k, v in route_map.items():
         print '{}:{}|s'.format(k, v)
 
 if __name__ == '__main__':
