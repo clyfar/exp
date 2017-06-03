@@ -1,9 +1,17 @@
-#!/usr/local/bin/python
+#!/usr/bin/env python
 # Author: Geoffrey Golliher (brokenway@gmail.com)
 
-##
-# This module will parse a given logfile and output statsd compatible messages.
-##
+"""This module will parse a given logfile and output statsd compatible messages.
+
+There are a couple of files that are used to make sure we can parse a log every n seconds:
+
+  1. There is an offset file used to track the number of bytes read into the logfile
+     at the last interval. The offset is used to start reading the log again at the
+     last offset.
+  2. There is a ctime file which keeps track of the logfile's creation time. The use
+     of this file allows the program to continue reading the canonical log even if it
+     is rotated.
+"""
 
 import optparse
 import os.path
