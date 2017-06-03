@@ -10,7 +10,6 @@ class TestLogParser(unittest.TestCase):
     def setUp(self):
         self.offset_file = 'test_data/offset'
         self.logfile_file = 'test_data/sample.log'
-        self.new_logfile_file = 'test_data/sample.2.log'
         self.ctime_file = 'test_data/ctime_file'
         self.lock_file = 'test_data/lockfile'
         log_parser.offset_file = self.offset_file
