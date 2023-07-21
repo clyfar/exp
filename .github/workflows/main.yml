@@ -1,0 +1,38 @@
+name: Assign reviewers based on subdirectory CODEOWNERS
+
+on:
+  pull_request:
+    types: [opened, synchronize]
+
+jobs:
+  assign:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout repo
+      uses: actions/checkout@v2
+      
+    - name: Assign reviewers
+      run: |
+        # Set PR number
+        PRNUM=$(jq --raw-output .number "$GITHUB_EVENT_PATH")
+        
+        # Find all the modified files
+        FILES=$(gh pr diff $PRNUM --json files -q '.files[].filename')
+
+        for FILE in $FILES
+        do
+          DIRNAME=$(dirname "$FILE")
+          # Look for CODEOWNERS file in the same directory as the changed file
+          while [ "$DIRNAME" != "." ]; do
+            if [ -f "$DIRNAME/CODEOWNERS" ]; then
+              # Extract GitHub username from CODEOWNERS file
+              USERS=$(awk -F '[ @]*' '{print $2}' $DIRNAME/CODEOWNERS)
+              gh pr review $PRNUM --request $USERS
+              echo "Requested review from $USERS for PR #$PRNUM."
+              break
+            fi
+            DIRNAME=$(dirname "$DIRNAME")
+          done
+        done
+      env:
+        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
