@@ -40,7 +40,7 @@ jobs:
               for USER in $USERS
               do
                 echo "Requesting review from $USER for PR #$PRNUM."
-                gh pr review $PRNUM --request $USER
+                gh pr edit $PRNUM --add-reviewer $USER
               done
               break
             fi
