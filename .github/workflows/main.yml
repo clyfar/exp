@@ -15,10 +15,12 @@ jobs:
       run: |
         # Set PR number
         PRNUM=$(jq --raw-output .number "$GITHUB_EVENT_PATH")
-        
-        # Find all the modified files
-        FILES=$(gh pr diff $PRNUM --json files -q '.files[].filename')
 
+        # Find all the modified files
+        FILES=$(curl -s -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
+                     https://api.github.com/repos/${{ github.repository }}/pulls/$PRNUM/files | \
+                     jq -r .[].filename)
+        
         for FILE in $FILES
         do
           DIRNAME=$(dirname "$FILE")
@@ -27,8 +29,11 @@ jobs:
             if [ -f "$DIRNAME/CODEOWNERS" ]; then
               # Extract GitHub username from CODEOWNERS file
               USERS=$(awk -F '[ @]*' '{print $2}' $DIRNAME/CODEOWNERS)
-              gh pr review $PRNUM --request $USERS
-              echo "Requested review from $USERS for PR #$PRNUM."
+              for USER in $USERS
+              do
+                gh pr review $PRNUM --request $USER
+                echo "Requested review from $USER for PR #$PRNUM."
+              done
               break
             fi
             DIRNAME=$(dirname "$DIRNAME")
