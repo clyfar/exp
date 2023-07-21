@@ -15,24 +15,32 @@ jobs:
       run: |
         # Set PR number
         PRNUM=$(jq --raw-output .number "$GITHUB_EVENT_PATH")
+        echo "PR Number: $PRNUM"
 
         # Find all the modified files
         FILES=$(curl -s -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
                      https://api.github.com/repos/${{ github.repository }}/pulls/$PRNUM/files | \
                      jq -r .[].filename)
         
+        echo "Modified Files: $FILES"
+        
         for FILE in $FILES
         do
           DIRNAME=$(dirname "$FILE")
+          echo "Directory: $DIRNAME"
+          
           # Look for CODEOWNERS file in the same directory as the changed file
           while [ "$DIRNAME" != "." ]; do
             if [ -f "$DIRNAME/CODEOWNERS" ]; then
               # Extract GitHub username from CODEOWNERS file
               USERS=$(awk -F '[ @]*' '{print $2}' $DIRNAME/CODEOWNERS)
+              
+              echo "Users: $USERS"
+              
               for USER in $USERS
               do
+                echo "Requesting review from $USER for PR #$PRNUM."
                 gh pr review $PRNUM --request $USER
-                echo "Requested review from $USER for PR #$PRNUM."
               done
               break
             fi
