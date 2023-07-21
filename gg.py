@@ -1,2 +1,1 @@
 print("gg")
-print("ll")
