@@ -27,7 +27,7 @@ return_code_map = {}
 route_map = {}
 
 time = '^.*\[([0-9]+/[a-zA-Z]{3}/[0-9]{4}:[0-9]{2}:[0-9]{2}:[0-9]{2}..[0-9]{4})\].+'
-route = '(GET|POST|DELETE|HEAD).(.+)'
+route = '(GET|POST|DELETE|HEAD|PUT).(.+)'
 status = 'HTTP/1.[0-1]..([0-9]{3})'
 reg = re.compile(time+route+status)
 
