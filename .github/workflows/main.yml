@@ -47,5 +47,13 @@ jobs:
             DIRNAME=$(dirname "$DIRNAME")
           done
         done
+        if [ ${#USERS[@]} -eq 0 ]; then
+          USERS=$(awk -F '[ @]*' '{print $2}' $DIRNAME/CODEOWNERS)
+          for USER in $USERS
+              do
+                echo "Requesting review from $USER for PR #$PRNUM."
+                gh pr edit $PRNUM --add-reviewer $USER
+              done
+        fi
       env:
         GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
