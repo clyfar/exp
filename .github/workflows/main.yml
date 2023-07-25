@@ -52,7 +52,7 @@ jobs:
           for USER in $USERS
               do
                 echo "Requesting review from $USER for PR #$PRNUM."
-                gh pr edit $PRNUM --add-reviewer $USER
+                gh pr edit $PRNUM --add-reviewer "$USER"
               done
         fi
       env:
